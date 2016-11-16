@@ -17,7 +17,10 @@ class Processor(object):
         self.write_finish = 0
 
     def tick(self):
-        '''return: True if not EOF; False if finished running.'''
+        '''
+        return: True if the processor should be further ticked;
+                False if finished.
+        '''
 
         self.cycle_count += 1
 
