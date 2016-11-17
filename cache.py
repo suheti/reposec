@@ -61,7 +61,7 @@ class Cache(object):
             append new pair to the list
             return None
 
-        return: None, or the (address, state) replaced.
+        return: None, or the {address:, state:} replaced.
         '''
         identifier = address / self.block_size
         index = identifier % self.num_of_sets
@@ -79,9 +79,10 @@ class Cache(object):
             if len(current_set) == self.assoc:
                 evicted = current_set.pop(0)
                 current_set.append((tag, new_state))
-                return (evicted[0] * self.num_of_sets * self.block_size
+                return {'address':
+                        evicted[0] * self.num_of_sets * self.block_size
                         + index * self.block_size,
-                        evicted[1]) # check 3)
+                        'state': evicted[1]} # check 3)
         else:
             self.cache[index] = []
             self.cache[index].append((tag, new_state))

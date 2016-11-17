@@ -1,3 +1,4 @@
+import logging
 
 class Processor(object):
     '''Emulate a processor core'''
@@ -32,7 +33,8 @@ class Processor(object):
             return True
 
         nextline = self.file.readline()
-        print nextline
+        logging.debug(nextline[0:-1])
+        # print nextline
         if nextline == '':
             return False
 
@@ -46,7 +48,7 @@ class Processor(object):
         elif instr[0] == 1: # store
             self.is_stalled = True
             self.cache_controller.prwr(instr[1], self.resume)
-            self.write_start = self.count_down_cycle
+            self.write_start = self.cycle_count
             self.total_num_writes += 1
 
         return True
@@ -57,6 +59,6 @@ class Processor(object):
         '''
         self.is_stalled = False
         if self.write_start > self.write_finish:
-            self.write_finish = self.count_down_cycle
+            self.write_finish = self.cycle_count
             self.total_write_latency += self.write_finish - self.write_start
 
