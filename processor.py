@@ -11,6 +11,7 @@ class Processor(object):
         self.count_down_cycle = 0
 
         self.cycle_count = 0
+        self.is_finished = False
 
         self.total_num_writes = 0
         self.total_write_latency = 0
@@ -22,6 +23,8 @@ class Processor(object):
         return: True if the processor should be further ticked;
                 False if finished.
         '''
+        if self.is_finished:
+            return False
 
         self.cycle_count += 1
 
@@ -36,6 +39,7 @@ class Processor(object):
         logging.debug(nextline[0:-1])
         # print nextline
         if nextline == '':
+            self.is_finished = True
             return False
 
         instr = [int(x, 16) for x in nextline.split()]
