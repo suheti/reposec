@@ -129,6 +129,8 @@ class CacheControllerMESI(object):
         # if the message is from other cache controllers
         mystate = self.cache.get_state(message['address'])
         if message['title'] == BUSREAD: # need to respond with flush and share status
+            new_message = None
+            is_shared = True
             if mystate == (MODIFIED or EXCLUSIVE): # needs to flush and set share status
                 self.cache.set_state(message['address'], SHARED)
                 new_message = construct_message(BUSWB, self, message['address'])
