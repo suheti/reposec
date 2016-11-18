@@ -71,7 +71,7 @@ class CacheControllerMESI(object):
         elif current_state == SHARED:
             self.hit_count += 1
             self.shared_data_access_count += 1
-        elif current_state == EXCLUSIVE or MODIFIED:
+        elif current_state == (EXCLUSIVE or MODIFIED):
             self.hit_count += 1
             self.private_data_access_count += 1
 
@@ -81,7 +81,7 @@ class CacheControllerMESI(object):
     def prwr(self, address, pr_callback):
         '''respond to processor's PrWr call'''
         current_state = self.cache.get_state(address)
-        if current_state == INVALID or SHARED:
+        if current_state == (INVALID or SHARED):
             self.miss_count += 1
             self.private_data_access_count += 1
             message = construct_message(BUSREADX, self, address,
@@ -129,7 +129,7 @@ class CacheControllerMESI(object):
         # if the message is from other cache controllers
         mystate = self.cache.get_state(message['address'])
         if message['title'] == BUSREAD: # need to respond with flush and share status
-            if mystate == MODIFIED or EXCLUSIVE: # needs to flush and set share status
+            if mystate == (MODIFIED or EXCLUSIVE): # needs to flush and set share status
                 self.cache.set_state(message['address'], SHARED)
                 new_message = construct_message(BUSWB, self, message['address'])
                 is_shared = True
@@ -141,7 +141,7 @@ class CacheControllerMESI(object):
                 is_shared = False
             return (new_message, is_shared) # method exit point 2
         elif message['title'] == BUSREADX:
-            if mystate == MODIFIED or EXCLUSIVE:
+            if mystate == (MODIFIED or EXCLUSIVE):
                 self.cache.set_state(message['address'], INVALID)
                 new_message = construct_message(BUSWB, self, message['address'])
                 return new_message # method exit point 3
@@ -229,8 +229,8 @@ class BusMESI(object):
                         is_shared = True
                         break
                     is_shared = is_shared or returned[1]
-                if is_shared:
-                    self.active_message['share status'] = True
+                self.active_message['share status'] = is_shared
+
                 self.countdown_memory = self.MEM_COUNTDOWN
             elif self.active_message['title'] == BUSREADX:
                 sender = self.active_message['sender']
