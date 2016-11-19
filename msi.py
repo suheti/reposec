@@ -117,7 +117,8 @@ class CacheControllerMSI(object):
         - flush line, if there is evicted line and it is in M state
 
         return:
-            None. Or flushed line.
+            None
+            True - indicating the referred address is flushed
         '''
         if message['sender'] == self:
             evicted = self.cache.set_state(message['address'],
@@ -133,16 +134,16 @@ class CacheControllerMSI(object):
         if message['title'] == BUSREAD:
             if mystate == MODIFIED:
                 self.cache.set_state(message['address'], SHARED)
-                new_message = construct_message(BUSWB, self, message['address'])
-                return new_message # method exit point 2
+                #new_message = construct_message(BUSWB, self, message['address'])
+                return True # method exit point 2
         elif message['title'] == BUSREADX:
             if mystate == SHARED:
                 self.cache.set_state(message['address'], INVALID)
                 return None # method exit point 3
             elif mystate == MODIFIED:
                 self.cache.set_state(message['address'], INVALID)
-                new_message = construct_message(BUSWB, self, message['address'])
-                return new_message # method exit point 4
+                # new_message = construct_message(BUSWB, self, message['address'])
+                return True # method exit point 4
 
         return None # method exit point 5, default return None
 
@@ -201,6 +202,11 @@ class BusMSI(object):
                     self.active_message['sender'].receive_bus_message(
                         self.active_message)
                 self.active_message = None # this statement is actually not necessary?
+
+                '''when block_size > mem_latency,cache countdown should be reset
+                here to avoid bleeding into next active_message's countdown!
+                '''
+                self.countdown_cache = -1
             self.countdown_memory -= 1
             return # method exit point 2
 

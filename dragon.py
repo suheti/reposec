@@ -256,6 +256,11 @@ class BusDragon(object):
                     self.active_message['sender'].receive_bus_message(
                         self.active_message)
                 self.active_message = None # this statement is actually not necessary?
+
+                '''when block_size > mem_latency,cache countdown should be reset
+                here to avoid bleeding into next active_message's countdown!
+                '''
+                self.countdown_cache = -1
             self.countdown_memory -= 1
             return # method exit point 2
 
