@@ -115,23 +115,23 @@ print 'time used in seconds' + str((end_time - start_time))
 print 'end time: ' + strftime("%H:%M:%S", gmtime())
 """
 output=open(input_file+protocol+'.csv','a')
-output.write(' ,miss count,hit count,private data access count,shared data access count,'+
-             'total write latency,total num writes,cycle count\n')
-result_0 = ['cache size:'+(str(cache_size)), cc_0.miss_count, cc_0.hit_count,
+output.write(' ,miss count,hit count,miss rate, private data access count,shared data access count,'+
+             'total write latency,total num writes,average write latency,cycle count\n')
+result_0 = ['cache size:'+(str(cache_size)), cc_0.miss_count, cc_0.hit_count, cc_0.miss_count/(cc_0.miss_count+cc_0.hit_count+0.0),
             cc_0.private_data_access_count, cc_0.shared_data_access_count, pr_0.total_write_latency,
-            pr_0.total_num_writes, pr_0.cycle_count]
+            pr_0.total_num_writes, pr_0.total_write_latency/(pr_0.total_num_writes+0.0), pr_0.cycle_count]
 
-result_1 = ['block size:'+(str(block_size)), cc_1.miss_count, cc_1.hit_count, 
+result_1 = ['block size:'+(str(block_size)), cc_1.miss_count, cc_1.hit_count, cc_1.miss_count/(cc_1.miss_count+cc_1.hit_count+0.0),
             cc_1.private_data_access_count, cc_1.shared_data_access_count, pr_1.total_write_latency,
-            pr_1.total_num_writes, pr_1.cycle_count]
+            pr_1.total_num_writes, pr_1.total_write_latency/(pr_1.total_num_writes+0.0), pr_1.cycle_count]
 
-result_2 = ['associativity:'+(str(assoc)), cc_2.miss_count, cc_2.hit_count, 
+result_2 = ['associativity:'+(str(assoc)), cc_2.miss_count, cc_2.hit_count, cc_2.miss_count/(cc_2.miss_count+cc_2.hit_count+0.0),
             cc_2.private_data_access_count, cc_2.shared_data_access_count, pr_2.total_write_latency,
-            pr_2.total_num_writes, pr_2.cycle_count]
+            pr_2.total_num_writes, pr_2.total_write_latency/(pr_2.total_num_writes+0.0), pr_2.cycle_count]
 
-result_3 = ['protocol: '+(str(protocol)), cc_3.miss_count, cc_3.hit_count,
+result_3 = ['protocol: '+(str(protocol)), cc_3.miss_count, cc_3.hit_count, cc_3.miss_count/(cc_3.miss_count+cc_3.hit_count+0.0),
             cc_3.private_data_access_count, cc_3.shared_data_access_count, pr_3.total_write_latency,
-            pr_3.total_num_writes, pr_3.cycle_count]
+            pr_3.total_num_writes, pr_3.total_write_latency/(pr_3.total_num_writes+0.0), pr_3.cycle_count]
 
 output.write(','.join(map(str, result_0))+'\n')
 output.write(','.join(map(str, result_1))+'\n')
