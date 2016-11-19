@@ -34,9 +34,13 @@ class Cache(object):
 
         current_set = self.cache.get(index)
         if current_set: # if set is not None and is not an empty list
-            for (current_tag, state) in current_set:
-                if current_tag == tag:
-                    return state
+            for pair in current_set:
+                if tag == pair[0]:
+                    i = current_set.index(pair)
+                    if i != (self.assoc-1):
+                        current_set.pop(i)
+                        current_set.append(pair)
+                    return pair[1]
 
         return self.default_state
 
