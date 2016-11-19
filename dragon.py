@@ -127,7 +127,7 @@ class CacheControllerDragon(object):
                 if message['from prwr']:
                     if message['share status']: # SHARED_MODIFIED
                         # evicted = self.cache.set_state(message['address'], SHARED_MODIFIED)
-                        new_message = construct_message(BUSUPD, self, message['address'])
+                        new_message = construct_message(BUSUPD, self, message['address'], message['callback'])
                         new_message['from prwrmiss'] = True
                         self.bus.queue_message(new_message)
                         return None
