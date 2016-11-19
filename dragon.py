@@ -74,9 +74,9 @@ class CacheControllerDragon(object):
             message['from prwr'] = False
             self.bus.queue_message(message)
             return # method exit point 1
-        elif current_state == SHARED_CLEAN or SHARED_MODIFIED:
+        elif current_state in (SHARED_CLEAN, SHARED_MODIFIED):
             self.shared_data_access_count += 1
-        elif current_state == EXCLUSIVE or MODIFIED:
+        elif current_state in (EXCLUSIVE, MODIFIED):
             self.private_data_access_count += 1
 
         self.hit_count += 1
@@ -94,7 +94,7 @@ class CacheControllerDragon(object):
             message['from prwr'] = True
             self.bus.queue_message(message)
             return
-        elif current_state == SHARED_CLEAN or SHARED_MODIFIED:
+        elif current_state in (SHARED_CLEAN, SHARED_MODIFIED):
             # depending on the share status, new state will be Sm or M
             self.hit_count += 1
             #TODO: share/private data stats for BusRd is done in receive_bus_message
@@ -155,7 +155,7 @@ class CacheControllerDragon(object):
                         self.cache.set_state(message['address'], MODIFIED)
                         self.private_data_access_count += 1
 
-            if (evicted) and (evicted['state'] == (MODIFIED or SHARED_MODIFIED)):
+            if (evicted) and (evicted['state'] in (MODIFIED, SHARED_MODIFIED)):
                 new_message = construct_message(BUSWB, self, evicted['address'])
                 self.bus.queue_message(new_message)
 

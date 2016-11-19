@@ -4,6 +4,7 @@ general guideline for cache and bus design:
     Bus and cc when interpreting messages should be state-less. Any state
     information should be explicitly carried in the message.
 '''
+import logging
 from collections import deque
 
 
@@ -63,6 +64,7 @@ class CacheControllerMESI(object):
         current_state = self.cache.get_state(address)
         if current_state == INVALID:
             self.miss_count += 1
+            logging.debug('miss')
             # share/private data stats for BusRd is done in receive_bus_message
             message = construct_message(BUSREAD, self, address,
                                         pr_callback)
@@ -70,9 +72,11 @@ class CacheControllerMESI(object):
             return # method exit point 1
         elif current_state == SHARED:
             self.hit_count += 1
+            logging.debug('hit')
             self.shared_data_access_count += 1
-        elif current_state == (EXCLUSIVE or MODIFIED):
+        elif current_state in (EXCLUSIVE, MODIFIED):
             self.hit_count += 1
+            logging.debug('hit')
             self.private_data_access_count += 1
 
         pr_callback() # call back processor
@@ -81,8 +85,10 @@ class CacheControllerMESI(object):
     def prwr(self, address, pr_callback):
         '''respond to processor's PrWr call'''
         current_state = self.cache.get_state(address)
-        if current_state == (INVALID or SHARED):
+        logging.debug('state:' + current_state)
+        if current_state in (INVALID, SHARED):
             self.miss_count += 1
+            logging.debug('miss')
             self.private_data_access_count += 1
             message = construct_message(BUSREADX, self, address,
                                         pr_callback)
@@ -91,9 +97,11 @@ class CacheControllerMESI(object):
         elif current_state == EXCLUSIVE:
             self.cache.set_state(address, MODIFIED)
             self.hit_count += 1
+            logging.debug('hit')
             self.private_data_access_count += 1
         elif current_state == MODIFIED:
             self.hit_count += 1
+            logging.debug('hit')
             self.private_data_access_count += 1
 
         pr_callback() # call back processor
@@ -131,7 +139,7 @@ class CacheControllerMESI(object):
         if message['title'] == BUSREAD: # need to respond with flush and share status
             new_message = None
             is_shared = True
-            if mystate == (MODIFIED or EXCLUSIVE): # needs to flush and set share status
+            if mystate in (MODIFIED, EXCLUSIVE): # needs to flush and set share status
                 self.cache.set_state(message['address'], SHARED)
                 new_message = construct_message(BUSWB, self, message['address'])
                 is_shared = True
@@ -143,7 +151,7 @@ class CacheControllerMESI(object):
                 is_shared = False
             return (new_message, is_shared) # method exit point 2
         elif message['title'] == BUSREADX:
-            if mystate == (MODIFIED or EXCLUSIVE):
+            if mystate in (MODIFIED, EXCLUSIVE):
                 self.cache.set_state(message['address'], INVALID)
                 new_message = construct_message(BUSWB, self, message['address'])
                 return new_message # method exit point 3
