@@ -1,6 +1,7 @@
 '''This module contains Bus class and Cache Controller for MSI protocol
 '''
 from collections import deque
+import logging
 
 # latency in cycles to access main memory
 MEM_LATENCY = 100
@@ -181,6 +182,7 @@ class BusMSI(object):
                     countdown_cache timer can be set. So it is guranteed that
                     BusWB won't be sent back to cache controllers.
                     '''
+                    logging.debug(self.active_message)
                     self.active_message['sender'].receive_bus_message(
                         self.active_message)
                     # clear variable once the message is sent back
@@ -194,8 +196,8 @@ class BusMSI(object):
             # if memory transfer is done
             if self.countdown_memory == 0:
                 # if active_message is not None and not BusWB
-                if (self.active_message and
-                        self.active_message['title'] != BUSWB):
+                if ((self.active_message) and
+                        (self.active_message['title'] != BUSWB)):
                     self.active_message['sender'].receive_bus_message(
                         self.active_message)
                 self.active_message = None # this statement is actually not necessary?
@@ -210,8 +212,8 @@ class BusMSI(object):
             if self.active_message['title'] == BUSREADX:
                 self.total_num_invalidations += 1
 
-            if (self.active_message['title'] == BUSREAD or
-                    self.active_message['title'] == BUSREADX):
+            if ((self.active_message['title'] == BUSREAD) or
+                    (self.active_message['title'] == BUSREADX)):
                 sender = self.active_message['sender']
                 other_cc = {c for c in self.list_of_cc if c not in [sender]}
                 flush = None

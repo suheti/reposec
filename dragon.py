@@ -251,8 +251,8 @@ class BusDragon(object):
             # if memory transfer is done
             if self.countdown_memory == 0:
                 # if active_message is not None and not BusWB
-                if (self.active_message and
-                        self.active_message['title'] != BUSWB):
+                if ((self.active_message) and
+                        (self.active_message['title'] != BUSWB)):
                     self.active_message['sender'].receive_bus_message(
                         self.active_message)
                 self.active_message = None # this statement is actually not necessary?
