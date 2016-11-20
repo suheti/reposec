@@ -50,44 +50,38 @@ class Cache(object):
         This method handles LRU logic as well. Each cache set is a python list
         of (tag, state) pairs. The Least Recently Used block has the lowest
         index in list, while the Most Recently Used has the highest index.
-
-        The referenced cache block goes through the following checks:
-        1) exists in cache:
-            update state, pull to the highest index
-            return None
-        2) setting to default_state
-            return None
-        3) the corresponding associative set is full
-            evict the pair with the lowest Index
-            append new pair to the list
-            return the evicted pair
-        4) if the associative set is empty, or still have space
-            append new pair to the list
-            return None
-
-        return: None, or the {address:, state:} replaced.
         '''
         identifier = address / self.block_size
         index = identifier % self.num_of_sets
         tag = identifier / self.num_of_sets
 
         current_set = self.cache.get(index)
-        if current_set: # if set is not None and is not an empty list
+        if current_set:
             for pair in current_set:
                 if pair[0] == tag:
-                    current_set.remove(pair)
-                    current_set.append((tag, new_state))
-                    return None # check 1)
-            if new_state == self.default_state:
-                return None # check 2)
-            if len(current_set) == self.assoc:
+                    if new_state == self.default_state:
+                        current_set.remove(pair)
+                        return None
+                    else:
+                        current_set.remove(pair)
+                        current_set.append((tag, new_state))
+                        return None
+            # if runs to here, means tag does not exist in the set
+            if len(current_set) < self.assoc:
+                current_set.append((tag, new_state))
+                return None
+            else: # set is already full
                 evicted = current_set.pop(0)
                 current_set.append((tag, new_state))
                 return {'address':
                         evicted[0] * self.num_of_sets * self.block_size
                         + index * self.block_size,
-                        'state': evicted[1]} # check 3)
+                        'state': evicted[1]}
+
         else:
-            self.cache[index] = []
-            self.cache[index].append((tag, new_state))
-            return None # check 4)
+            if new_state == self.default_state:
+                return None
+            else:
+                self.cache[index] = []
+                self.cache[index].append((tag, new_state))
+                return None
