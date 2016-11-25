@@ -227,6 +227,7 @@ class BusDragon(object):
         self.total_bytes_passed_on_bus = 0
         # count the number of BusRdX appeared on bus
         self.total_num_invalidations = 0
+        self.total_num_evictions = 0
 
     def tick(self):
         '''Emulates a clock tick'''
@@ -306,6 +307,7 @@ class BusDragon(object):
             elif self.active_message['title'] == BUSWB:
                 self.total_bytes_passed_on_bus += self.block_size
                 self.countdown_memory = self.MEM_COUNTDOWN
+                self.total_num_evictions += 1
 
         return # method exit point 4, default exit point
 

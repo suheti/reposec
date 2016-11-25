@@ -136,11 +136,11 @@ print 'end time: ' + strftime("%H:%M:%S", gmtime())
 output=open(input_file+protocol+'.csv','a')
 output.write(' ,miss count,hit count,miss rate, private data access count,shared data access count,'+
              'total write latency,total num writes,average write latency,cycle count,'+
-             'total bytes passes on bus,bus invalidation/updates\n')
+             'total bytes passes on bus,bus invalidation/updates,num evictions\n')
 result_0 = ['cache size:'+(str(cache_size)), cc_0.miss_count, cc_0.hit_count, cc_0.miss_count/(cc_0.miss_count+cc_0.hit_count+0.0),
             cc_0.private_data_access_count, cc_0.shared_data_access_count, pr_0.total_write_latency,
-            pr_0.total_num_writes, pr_0.total_write_latency/(pr_0.total_num_writes+0.0),
-            bus.total_bytes_passed_on_bus, bus.total_num_invalidations, pr_0.cycle_count]
+            pr_0.total_num_writes, pr_0.total_write_latency/(pr_0.total_num_writes+0.0), pr_0.cycle_count,
+            bus.total_bytes_passed_on_bus, bus.total_num_invalidations, bus.total_num_evictions]
 
 result_1 = ['block size:'+(str(block_size)), cc_1.miss_count, cc_1.hit_count, cc_1.miss_count/(cc_1.miss_count+cc_1.hit_count+0.0),
             cc_1.private_data_access_count, cc_1.shared_data_access_count, pr_1.total_write_latency,

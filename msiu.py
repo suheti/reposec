@@ -1,12 +1,7 @@
-'''This module contains Bus class and Cache Controller for MESI protocol
-
-general guideline for cache and bus design:
-    Bus and cc when interpreting messages should be state-less. Any state
-    information should be explicitly carried in the message.
+'''This module contains Bus class and Cache Controller for MSI protocol
 '''
-import logging
 from collections import deque
-
+import logging
 
 # latency in cycles to access main memory
 MEM_LATENCY = 100
@@ -14,32 +9,31 @@ MEM_LATENCY = 100
 # possible states
 INVALID = 'invalid'
 SHARED = 'shared'
-EXCLUSIVE = 'exclusive'
 MODIFIED = 'modified'
 
 # message titles
 BUSREAD = 'BusRd'
 BUSREADX = 'BusRdX'
 BUSWB = 'BusWB'
+BUSUPGR = 'BusUpgr'
 '''message format
 a dictionary of values
 {title: BUSREAD/BUSREADX/BUSWB,
- sender: the cache controller instance that initiated this message,
+ sender: the cache controller instance,
  address: the memory address the cache controller wishes to operate on,
- [share status: True/False, whether the cache block is shared among
-        caches, applicable only to BusRead message returned to original sender.
-        This attribute is only added by bus, not upon message construction],
+ [new state: the target state the memory block]
  [callback: callback method for bus to inform cache controller that the tass
            is done]}
 '''
 
-def construct_message(title, sender, address, callback=None):
+def construct_message(title, sender, address, new_state=None, callback=None):
     '''helper function to construct a message'''
     return {'title': title, 'sender':sender,
-            'address': address, 'callback':callback}
+            'address': address, 'new state': new_state,
+            'callback':callback}
 
-class CacheControllerMESI(object):
-    '''Emulate the cache controller for MESI protocol
+class CacheControllerMSIu(object):
+    '''Emulate the cache controller for MSI protocol
 
     general guideline for sending message to bus:
         If the message is induced by a processor action, i.e. prwr/prrd, it is
@@ -64,19 +58,16 @@ class CacheControllerMESI(object):
         current_state = self.cache.get_state(address)
         if current_state == INVALID:
             self.miss_count += 1
-            logging.debug('miss')
-            # share/private data stats for BusRd is done in receive_bus_message
-            message = construct_message(BUSREAD, self, address,
+            self.shared_data_access_count += 1
+            message = construct_message(BUSREAD, self, address, SHARED,
                                         pr_callback)
             self.bus.queue_message(message)
             return # method exit point 1
         elif current_state == SHARED:
             self.hit_count += 1
-            logging.debug('hit')
             self.shared_data_access_count += 1
-        elif current_state in (EXCLUSIVE, MODIFIED):
+        elif current_state == MODIFIED:
             self.hit_count += 1
-            logging.debug('hit')
             self.private_data_access_count += 1
 
         pr_callback() # call back processor
@@ -85,83 +76,93 @@ class CacheControllerMESI(object):
     def prwr(self, address, pr_callback):
         '''respond to processor's PrWr call'''
         current_state = self.cache.get_state(address)
-        logging.debug('state:' + current_state)
-        if current_state in (INVALID, SHARED):
+        if current_state == INVALID:
             self.miss_count += 1
-            logging.debug('miss')
             self.private_data_access_count += 1
-            message = construct_message(BUSREADX, self, address,
+            message = construct_message(BUSREADX, self, address, MODIFIED,
                                         pr_callback)
             self.bus.queue_message(message)
             return # method exit point 1
-        elif current_state == EXCLUSIVE:
-            self.cache.set_state(address, MODIFIED)
+        elif current_state == SHARED:
             self.hit_count += 1
-            logging.debug('hit')
             self.private_data_access_count += 1
+            message = construct_message(BUSUPGR, self, address, MODIFIED,
+                                        pr_callback)
+            self.bus.queue_message(message)
+            return # method exit point 2
         elif current_state == MODIFIED:
             self.hit_count += 1
-            logging.debug('hit')
             self.private_data_access_count += 1
 
         pr_callback() # call back processor
-        return # method exit point 2
+        return # method exit point 3
 
     def receive_bus_message(self, message):
         '''Handles message propagated by bus
 
-        return one of the below:
+        By contract:
+        Three types of message can appear on the bus and propagate to cache
+        controllers: BusRd, BusRdX, BusWB.
+        The bus sends back BusRd/BusRdX messages to the original sender to
+        indicate successful data transfer. The cache controller does not need to
+        know the source of this data.
+
+        The bus does not propagate BusWB to cache controllers. Instead, when the
+        flushed write back data needs to be sent back to a controller, the bus
+        sends back the BusRd or BusRdX message to signal the cache controller
+        that the data is ready.
+
+        BusWB incurred due to the cache controller's own message (i.e. evistion)
+        is enqueued to bus. In contrast, BusWB incurred due to other cache
+        controllers' message is returned by the function. This is in accordance
+        with the "general guideline for sending message to bus" in the class
+        docstring.
+
+        Upon receiving the message, the cache controller needs to do some or all
+        of the following where applicable:
+        - update cache line state
+        - callback processor
+        - flush line, if there is evicted line and it is in M state
+
+        return:
             None
-            BusWB
-            (BusBW, is_shared)
+            True - indicating the referred address is flushed
         '''
         if message['sender'] == self:
-            evicted = None
-            if message['title'] == BUSREAD:
-                if message['share status']: # the block is shared
-                    evicted = self.cache.set_state(message['address'], SHARED)
-                    self.shared_data_access_count += 1
-                else: # the block is not in any other cache
-                    evicted = self.cache.set_state(message['address'], EXCLUSIVE)
-                    self.private_data_access_count += 1
-            elif message['title'] == BUSREADX:
-                evicted = self.cache.set_state(message['address'], MODIFIED)
-
+            evicted = self.cache.set_state(message['address'],
+                                           message['new state'])
             if (evicted) and (evicted['state'] == MODIFIED):
                 new_message = construct_message(BUSWB, self, evicted['address'])
                 self.bus.queue_message(new_message)
-
-            message['callback']()
+            message['callback']() # processor callback
             return None # method exit point 1
 
         # if the message is from other cache controllers
         mystate = self.cache.get_state(message['address'])
-        if message['title'] == BUSREAD: # need to respond with flush and share status
-            new_message = None
-            is_shared = True
-            if mystate in (MODIFIED, EXCLUSIVE): # needs to flush and set share status
+        if message['title'] == BUSREAD:
+            if mystate == MODIFIED:
                 self.cache.set_state(message['address'], SHARED)
-                new_message = construct_message(BUSWB, self, message['address'])
-                is_shared = True
-            elif mystate == SHARED: # needs to set share status to True
-                new_message = None
-                is_shared = True
-            elif mystate == INVALID: # needs to set share status to False
-                new_message = None
-                is_shared = False
-            return (new_message, is_shared) # method exit point 2
+                #new_message = construct_message(BUSWB, self, message['address'])
+                return True # method exit point 2
         elif message['title'] == BUSREADX:
-            if mystate in (MODIFIED, EXCLUSIVE):
+            if mystate == SHARED:
                 self.cache.set_state(message['address'], INVALID)
-                new_message = construct_message(BUSWB, self, message['address'])
-                return new_message # method exit point 3
-            # SHARED and INVALID will goto the default return, return None
-            elif mystate == SHARED:
+                return None # method exit point 3
+            elif mystate == MODIFIED:
                 self.cache.set_state(message['address'], INVALID)
+                # new_message = construct_message(BUSWB, self, message['address'])
+                return True # method exit point 4
+        elif message['title'] == BUSUPGR:
+            '''If the cache controller receives a BusUpgr, the referred block
+            can only be in SHARED or INVALID state
+            '''
+            if mystate == SHARED:
+                self.cache.set_state(message['address'], INVALID)
+                return None # method exit point 3
 
-        return None # method exit point 4, default return None
+        return None # method exit point 5, default return None. Should never reach here.
 
-class BusMESI(object):
+class BusMSIu(object):
     '''Emulate the bus line for MSI protocol
 
     The bus uses a deque as its message queue:
@@ -186,7 +187,6 @@ class BusMESI(object):
         self.total_bytes_passed_on_bus = 0
         # count the number of BusRdX appeared on bus
         self.total_num_invalidations = 0
-        self.total_num_evictions = 0
 
     def tick(self):
         '''Emulates a clock tick'''
@@ -198,6 +198,7 @@ class BusMESI(object):
                     countdown_cache timer can be set. So it is guranteed that
                     BusWB won't be sent back to cache controllers.
                     '''
+                    logging.debug(self.active_message)
                     self.active_message['sender'].receive_bus_message(
                         self.active_message)
                     # clear variable once the message is sent back
@@ -228,27 +229,13 @@ class BusMESI(object):
             self.active_message = self.msg_q.popleft()
 
             # increment analysis stats
-            self.total_bytes_passed_on_bus += self.block_size
-            if self.active_message['title'] == BUSREADX:
+            if self.active_message['title'] != BUSUPGR:
+                self.total_bytes_passed_on_bus += self.block_size
+            if self.active_message['title'] in (BUSREADX, BUSUPGR):
                 self.total_num_invalidations += 1
 
-            if self.active_message['title'] == BUSREAD:
-                sender = self.active_message['sender']
-                other_cc = {c for c in self.list_of_cc if c not in [sender]}
-                is_shared = False
-                '''A cache with the requested address in Modified state would
-                flush the block. The returned messag will contain [share status]'''
-                for cache_controller in other_cc:
-                    returned = cache_controller.receive_bus_message(self.active_message)
-                    if returned[0]:
-                        self.countdown_cache = self.CACHE_COUNTDOWN
-                        is_shared = True
-                        break
-                    is_shared = is_shared or returned[1]
-                self.active_message['share status'] = is_shared
-
-                self.countdown_memory = self.MEM_COUNTDOWN
-            elif self.active_message['title'] == BUSREADX:
+            if ((self.active_message['title'] == BUSREAD) or
+                    (self.active_message['title'] == BUSREADX)):
                 sender = self.active_message['sender']
                 other_cc = {c for c in self.list_of_cc if c not in [sender]}
                 flush = None
@@ -261,8 +248,15 @@ class BusMESI(object):
                 if flush:
                     self.countdown_cache = self.CACHE_COUNTDOWN
                 self.countdown_memory = self.MEM_COUNTDOWN
+            elif self.active_message['title'] == BUSUPGR:
+                sender = self.active_message['sender']
+                other_cc = {c for c in self.list_of_cc if c not in [sender]}
+                '''A cache with the requested address in Modified state would
+                flush the block. Otherwise flush is None'''
+                for cache_controller in other_cc:
+                    cache_controller.receive_bus_message(self.active_message)
+                sender.receive_bus_message(self.active_message)
             elif self.active_message['title'] == BUSWB:
-                self.total_num_evictions += 1
                 self.countdown_memory = self.MEM_COUNTDOWN
 
         return # method exit point 4, default exit point
@@ -270,4 +264,3 @@ class BusMESI(object):
     def queue_message(self, message):
         '''enqueue a message'''
         self.msg_q.append(message)
-
